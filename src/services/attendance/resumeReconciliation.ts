@@ -64,33 +64,11 @@ const getFreshResumePosition = async (): Promise<{
     console.warn('[ResumeReconciliation] Native GPS error:', nativeErr);
   }
 
-  if (typeof navigator !== 'undefined' && navigator.geolocation) {
-    try {
-      const webPos = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 7000,
-          maximumAge: 0
-        });
-      });
-      if (webPos?.coords) {
-        return {
-          latitude: webPos.coords.latitude,
-          longitude: webPos.coords.longitude,
-          accuracy: webPos.coords.accuracy,
-          timestamp: webPos.timestamp || Date.now()
-        };
-      }
-    } catch (webErr) {
-      console.warn('[ResumeReconciliation] Web Geolocation error:', webErr);
-    }
-  }
-
   return null;
 };
 
 /**
- * Authoritative PWA-Resume Attendance Reconciliation
+ * Native App-Resume Attendance Reconciliation
  * 
  * Reconciles local attendance state on app resume (visibilitychange, focus, pageshow, online, app boot)
  * without fabricating past unobserved timestamps. Uses the first fresh observation upon resume.
@@ -190,7 +168,7 @@ export const reconcileAttendanceOnResume = async (
         accuracy: pos.accuracy,
         townCity: cleanTown,
         isInsideOffice: isInside,
-        evidenceSource: 'PWA_RESUME_GPS'
+        evidenceSource: 'NATIVE_APP_RESUME_GPS_OBSERVATION'
       };
 
       // Independent Live Location Update
@@ -210,8 +188,8 @@ export const reconcileAttendanceOnResume = async (
       // CASE A: No Attendance Record for Today yet
       if (!record) {
         if (isInside) {
-          // Employee opened PWA inside office -> Auto Check-In on Resume
-          logAttendanceEvent('GEOFENCE_ENTER', employeeId, `[PWA_RESUME_GPS] Detected inside office (${Math.round(distance)}m) on resume. Auto check-in at ${timeStr}.`);
+          // Native app resumed inside office -> Auto Check-In on Resume
+          logAttendanceEvent('GEOFENCE_ENTER', employeeId, `[NATIVE_APP_RESUME_GPS_OBSERVATION] Detected inside office (${Math.round(distance)}m) on resume. Auto check-in at ${timeStr}.`);
 
           const eventId = generateIdempotentEventId(employeeId, dateStr, 'CHECK_IN', timeStr);
           const docId = `${employeeId}_${dateStr}`;
@@ -242,7 +220,7 @@ export const reconcileAttendanceOnResume = async (
             isOffline: !navigator.onLine,
             currentState: 'CHECKED_IN',
             processedEvents: [eventId],
-            evidenceSource: 'PWA_RESUME_GPS',
+            evidenceSource: 'NATIVE_APP_RESUME_GPS_OBSERVATION',
             lastObservation: observation,
 
             // Permanent Check-In Coordinates
@@ -383,7 +361,7 @@ export const reconcileAttendanceOnResume = async (
                 resumeTimestamp: nowIso,
                 decision: 'PRESERVE_AUTHORITATIVE_EXIT'
               });
-              logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[PWA_RESUME_GPS] App opened at ${timeStr} outside office. Preserving authoritative native exit time: ${record.recordedExitTime || record.geofenceExitTime}.`);
+              logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[NATIVE_APP_RESUME_GPS_OBSERVATION] App opened at ${timeStr} outside office. Preserving authoritative native exit time: ${record.recordedExitTime || record.geofenceExitTime}.`);
 
               record.pendingCheckoutConfirmation = true;
               record.pendingCheckoutEventId = generateIdempotentEventId(employeeId, dateStr, 'GEOFENCE_EXIT', record.geofenceExitTimestamp || record.exitDetectedAt || nowIso);
@@ -421,7 +399,7 @@ export const reconcileAttendanceOnResume = async (
                 resumeTimestamp: nowIso,
                 decision: 'NO_NATIVE_EVENT_UNRESOLVED'
               });
-              logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[PWA_RESUME_GPS] App opened outside office at ${timeStr}. Checkout not detected. Showing non-blocking checkout recovery prompt.`);
+              logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[NATIVE_APP_RESUME_GPS_OBSERVATION] App opened outside office at ${timeStr}. Checkout not detected. Showing non-blocking checkout recovery prompt.`);
 
               // Do not wipe historical exit fields if they already exist
               record.recordedExitTime = record.recordedExitTime || null;
@@ -482,7 +460,7 @@ export const reconcileAttendanceOnResume = async (
             // foreground-service event to supply the immutable return event timestamp.
             if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
               record.returnObservationAt = pos.timestamp > 0 ? new Date(pos.timestamp).toISOString() : nowIso;
-              record.returnObservationSource = 'PWA_RESUME_GPS';
+              record.returnObservationSource = 'NATIVE_APP_RESUME_GPS_OBSERVATION';
               record.currentState = 'CHECKED_IN';
               record.pendingCheckoutConfirmation = false;
               record.pendingCheckoutEventId = null;
@@ -490,14 +468,14 @@ export const reconcileAttendanceOnResume = async (
               record.exitPromptResolvedOutside = false;
               record.checkoutStatus = undefined;
               record.checkOutTime = null;
-              record.evidenceSource = 'PWA_RESUME_GPS';
+              record.evidenceSource = 'NATIVE_APP_RESUME_GPS_OBSERVATION';
               record.syncStatus = 'Pending';
               modified = true;
 
               // Do not append GEOFENCE_RETURN to eventHistory, set lastReturnTime,
               // enqueue a synthetic return, or clear the native pending exit here.
               // The native monitor remains armed to record the actual boundary return.
-              logAttendanceEvent('RETURN_DETECTED', employeeId, '[PWA_RESUME_GPS] Employee observed inside on resume; awaiting native boundary timestamp for forensic return event.');
+              logAttendanceEvent('RETURN_DETECTED', employeeId, '[NATIVE_APP_RESUME_GPS_OBSERVATION] Employee observed inside on resume; awaiting native boundary timestamp for forensic return event.');
             } else {
               // Return to office transition: Restore CHECKED_IN
               const eventId = generateIdempotentEventId(employeeId, dateStr, 'GEOFENCE_RETURN', timeStr);
@@ -516,7 +494,7 @@ export const reconcileAttendanceOnResume = async (
               record.currentState = 'CHECKED_IN';
               record.checkoutStatus = undefined;
               record.checkOutTime = null;
-              record.evidenceSource = 'PWA_RESUME_GPS';
+              record.evidenceSource = 'NATIVE_APP_RESUME_GPS_OBSERVATION';
               record.syncStatus = 'Pending';
   
               delete record.checkoutLatitude;
@@ -530,7 +508,7 @@ export const reconcileAttendanceOnResume = async (
                 eventType: 'GEOFENCE_RETURN',
                 eventTime: timeStr,
                 timestamp: nowIso,
-                source: 'PWA_RESUME_GPS',
+                source: 'NATIVE_APP_RESUME_GPS_OBSERVATION',
                 location: pos ? {
                   latitude: pos.latitude,
                   longitude: pos.longitude,
@@ -566,7 +544,7 @@ export const reconcileAttendanceOnResume = async (
   
               cancelPendingNativeExit().catch(() => {});
   
-              logAttendanceEvent('RETURN_DETECTED', employeeId, `[PWA_RESUME_GPS] Detected return to office (${Math.round(distance)}m) on resume at ${timeStr}. Restored CHECKED_IN.`);
+              logAttendanceEvent('RETURN_DETECTED', employeeId, `[NATIVE_APP_RESUME_GPS_OBSERVATION] Detected return to office (${Math.round(distance)}m) on resume at ${timeStr}. Restored CHECKED_IN.`);
   
               if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
