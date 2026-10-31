@@ -5,7 +5,7 @@ export type AttendanceType = 'OFFICE' | 'WFH' | 'CLIENT_VISIT' | 'OUTDOOR';
 
 export type EvidenceSource = 
   | 'FOREGROUND_GPS' 
-  | 'PWA_RESUME_GPS' 
+  | 'NATIVE_APP_RESUME_GPS_OBSERVATION' 
   | 'NATIVE_GEOFENCE' 
   | 'MANUAL' 
   | 'SERVER_FINALIZATION' 
