@@ -1,7 +1,4 @@
 export type VideoEnv = {
-  LIVEKIT_API_KEY: string;
-  LIVEKIT_API_SECRET: string;
-  LIVEKIT_URL: string;
   FIREBASE_SERVICE_ACCOUNT_KEY: string;
   FIREBASE_PROJECT_ID?: string;
 };
@@ -270,77 +267,4 @@ export async function isCallerActive(env: VideoEnv, caller: Caller): Promise<boo
   }
   const employee = await findRegistration(env, caller.uid, caller.email || '');
   return !!employee && isApprovedEmployee(employee.data);
-}
-
-function base64UrlEncodeBytes(bytes: Uint8Array): string {
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-}
-
-export function liveKitUrl(env: VideoEnv): string {
-  if (!env.LIVEKIT_API_KEY || !env.LIVEKIT_API_SECRET || !env.LIVEKIT_URL) throw new Error('LIVEKIT_NOT_CONFIGURED');
-  const value = String(env.LIVEKIT_URL).trim().replace(/\/$/, '');
-  if (!/^wss:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(value)) throw new Error('LIVEKIT_NOT_CONFIGURED');
-  return value;
-}
-
-export async function signLiveKitJwt(env: VideoEnv, claims: Record<string, unknown>): Promise<string> {
-  liveKitUrl(env);
-  const header = base64UrlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const payload = base64UrlEncode(JSON.stringify(claims));
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.LIVEKIT_API_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(header + '.' + payload));
-  return header + '.' + payload + '.' + base64UrlEncodeBytes(new Uint8Array(signature));
-}
-
-export async function createMeetingToken(env: VideoEnv, roomName: string, uid: string, userName: string, exp: number) {
-  const now = Math.floor(Date.now() / 1000);
-  return signLiveKitJwt(env, { iss: env.LIVEKIT_API_KEY, sub: uid, name: userName.slice(0, 80), nbf: now - 5, iat: now, exp, video: { roomJoin: true, room: roomName, canPublish: true, canSubscribe: true, canPublishData: true } });
-}
-
-export async function nameForUid(env: VideoEnv, uid: string): Promise<string> {
-  const admin = await getDoc(env, 'admin_users', uid);
-  if (admin) { const data = decodeDoc(admin); return String(data.name || data.displayName || data.loginId || data.email || 'Administrator').slice(0, 80); }
-  const employee = await findRegistration(env, uid);
-  if (employee) { const data = employee.data || {}; return String(data.name || data.fullName || data.employeeCode || 'Employee').slice(0, 80); }
-  return 'EXFIN OMS user';
-}
-
-export async function sendIncomingCallPush(env: VideoEnv, recipientUid: string, employeeCode: string, callId: string, callerName: string, title: string) {
-  const identityIds = new Set<string>([recipientUid]);
-  const registration = await findRegistration(env, recipientUid);
-  if (registration) {
-    identityIds.add(String(registration.id || '').trim());
-    identityIds.add(String(registration.data?.uid || '').trim());
-    identityIds.add(String(registration.data?.authUid || '').trim());
-  }
-  identityIds.delete('');
-  const queries = await Promise.all([
-    ...Array.from(identityIds).map((uid) => queryByField(env, 'push_device_tokens', 'uid', uid, 50)),
-    employeeCode ? queryByField(env, 'push_device_tokens', 'employeeCode', employeeCode, 50) : Promise.resolve([]),
-  ]);
-  const documents = queries.flat();
-  const unique = new Map<string, any>();
-  for (const document of documents) {
-    const device = decodeDoc(document);
-    const linkedByUid = identityIds.has(String(device.uid || ''));
-    const linkedByCode = !!employeeCode && String(device.employeeCode || '').trim().toUpperCase() === employeeCode.trim().toUpperCase();
-    const knownAndroid = device.platform === 'android' || device.appId === 'com.exfin.oms';
-    if (device.token && (linkedByUid || linkedByCode) && knownAndroid) unique.set(String(device.token), device);
-  }
-  const devices = Array.from(unique.values());
-  if (!devices.length) return { tokenCount: 0, attempted: 0, sent: 0, failed: 0, errors: ['NO_ANDROID_FCM_TOKEN_REGISTERED'] };
-  const accessToken = await getGoogleAccessToken(env);
-  const projectId = env.FIREBASE_PROJECT_ID || PROJECT_ID;
-  const results = await Promise.allSettled(devices.map(async (device) => {
-    const response = await fetch(`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/messages:send`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ message: { token: String(device.token), data: { type: 'video_call', callId, callerName: callerName || 'EXFIN OMS Admin', route: '/video-calls', title: title || 'EXFIN OMS video call' }, android: { priority: 'HIGH', ttl: '60s', collapse_key: 'exfin_video_call_' + callId } } }),
-    });
-    if (!response.ok) throw new Error(`FCM send failed (${response.status}): ${(await response.text().catch(() => '')).slice(0, 240)}`);
-  }));
-  const errors = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected').map((r) => String((r.reason as any)?.message || r.reason || 'FCM_SEND_FAILED').slice(0, 240));
-  return { tokenCount: devices.length, attempted: devices.length, sent: devices.length - errors.length, failed: errors.length, errors };
 }
