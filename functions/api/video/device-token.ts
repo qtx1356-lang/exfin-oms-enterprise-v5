@@ -16,7 +16,7 @@ async function sha256Hex(value: string): Promise<string> {
   return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-/** Canonical Android FCM token registration consumed by the LiveKit call sender. */
+/** Canonical Android FCM token registration used by the native video-call notification service. */
 export const onRequest: PagesFunction<VideoEnv> = async ({ request, env }) => {
   if (request.method === 'OPTIONS') return json(null, 204);
   if (request.method !== 'POST') return json({ success: false, error: 'Method not allowed.' }, 405);
