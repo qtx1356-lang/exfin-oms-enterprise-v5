@@ -30,8 +30,8 @@ export const onRequest: PagesFunction<VideoEnv> = async ({ request, env }) => {
     const mode = body?.mode === 'group' ? 'group' : 'direct';
     const rawRecipients = Array.isArray(body?.recipientUids) ? body.recipientUids : [];
     const recipientUids = Array.from(new Set(rawRecipients.filter((value: unknown) => typeof value === 'string' && value.length > 0 && value.length <= 128))) as string[];
-    if (!recipientUids.length || recipientUids.length > 50 || (mode === 'direct' && recipientUids.length !== 1)) {
-      return json({ success: false, error: 'Select one recipient for a direct call, or up to 50 for a group meeting.' }, 400);
+    if (!recipientUids.length || (mode === 'direct' && recipientUids.length !== 1)) {
+      return json({ success: false, error: 'Select at least one recipient for a group meeting.' }, 400);
     }
     if (mode === 'group' && (!caller.isAdmin || !ADMIN_ROLES.has(caller.role))) return json({ success: false, error: 'Only authorized administrators can start group meetings.' }, 403);
     if (recipientUids.includes(caller.uid)) return json({ success: false, error: 'You cannot call your own account.' }, 400);
