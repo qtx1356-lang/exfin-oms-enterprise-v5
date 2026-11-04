@@ -13,7 +13,6 @@ const SFU_BASE = "https://rtc.live.cloudflare.com/v1";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FCM_SCOPE = "https://www.googleapis.com/auth/firebase.messaging";
-const MAX_PARTICIPANTS = 31;
 const CONFERENCE_TTL_MS = 6 * 60 * 60 * 1000;
 const certCache = new Map<string, { expiresAt: number; keys: Record<string, Json> }>();
 const oauthCache = new Map<string, { token: string; expiresAt: number }>();
@@ -388,7 +387,7 @@ async function handler(req: Request, env: Env): Promise<Response> {
     if (!(await approvedAdmin(env, caller.uid))) return json({ success: false, error: "Only an active admin can start a conference." }, 403, req, env);
     const input = await body(req);
     const raw = Array.isArray(input.participantUids) ? input.participantUids : [];
-    const selectedUids = [...new Set(raw.map((v: any) => String(v || "").trim()).filter(Boolean))].filter((uid) => uid !== caller.uid).slice(0, MAX_PARTICIPANTS - 1);
+    const selectedUids = [...new Set(raw.map((v: any) => String(v || "").trim()).filter(Boolean))].filter((uid) => uid !== caller.uid);
     if (!selectedUids.length) return json({ success: false, error: "Select at least one employee." }, 400, req, env);
     // Store every approved identity alias for each selected employee. The admin recipient
     // list can contain a legacy registration UID while the native app authenticates with
