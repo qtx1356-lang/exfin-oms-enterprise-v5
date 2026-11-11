@@ -722,7 +722,10 @@ export const getEffectiveCheckoutStatus = (record: AttendanceRecord): 'COMPLETED
   if (record.checkoutStatus === 'PENDING_ADMIN_REVIEW') return 'PENDING_ADMIN_REVIEW';
   const propVal = (record.employeeProposedCheckoutTime || record.employeeProvidedCheckoutTime || '').trim();
   const hasValidProposal = propVal !== '' && !isAttendanceTimeInFuture(propVal, record.date) && propVal !== 'UNRESOLVED' && propVal !== '--:--' && propVal !== 'Pending' && propVal !== 'N/A';
-  if (hasValidProposal && isCheckOutMissing) {
+  // An employee-entered checkout remains a proposal even though the same
+  // time is also stored in checkOutTime for display. It must not be treated
+  // as a verified completion until an admin approves or corrects it.
+  if (hasValidProposal) {
     return 'PENDING_ADMIN_REVIEW';
   }
   
