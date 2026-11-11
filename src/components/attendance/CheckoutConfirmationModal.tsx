@@ -538,20 +538,56 @@ export const CheckoutConfirmationModal: React.FC = () => {
       const empId = activeRecord.employeeId || employeeId || 'emp';
       const eventId = `evt_manual_confirm_${empId}_${activeRecord.date}_${confirmedTimeStr.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
-      // Update the record deterministically for its authoritative date
+      // Keep the native exit timestamp authoritative only when the employee
+      // confirms the automatically captured time without changing it.
+      const autoExitMinutes = suggestedExitTime ? parseAttendanceTimeToMinutes(suggestedExitTime) : null;
+      const confirmedMinutes = parseAttendanceTimeToMinutes(confirmedTimeStr);
+      const confirmedAutoCapturedTime =
+        autoExitMinutes !== null && confirmedMinutes !== null && autoExitMinutes === confirmedMinutes;
+
       activeRecord.checkOutTime = confirmedTimeStr;
       activeRecord.workingHours = workingHours;
-      activeRecord.checkoutStatus = 'FINALIZED';
-      activeRecord.checkoutFinalized = true;
       activeRecord.checkoutConfirmed = true;
-      activeRecord.attendanceStatus = 'RESOLVED';
-      activeRecord.status = 'completed';
-      activeRecord.currentState = 'FINALIZED_CHECKOUT';
-      activeRecord.checkOutMode = 'MANUAL';
-      activeRecord.checkoutType = suggestedExitTime ? 'AUTO_CHECKOUT' : 'MANUAL_CONFIRMED';
-      activeRecord.checkoutSource = suggestedExitTime ? 'CONFIRMED_NATIVE_EXIT' : 'EMPLOYEE_REPORTED';
-      activeRecord.resolutionSource = 'EMPLOYEE_CONFIRMED';
       activeRecord.pendingCheckoutConfirmation = false;
+      activeRecord.pendingCheckoutEventId = null;
+      activeRecord.returningToOffice = false;
+      activeRecord.exitPromptResolvedOutside = false;
+      activeRecord.confirmationCompletedAt = nowIso;
+      activeRecord.syncStatus = 'Pending';
+      activeRecord.updatedAt = nowIso;
+
+      if (confirmedAutoCapturedTime) {
+        // Automatically captured native exit time confirmed in the popup:
+        // finalize normally; no admin verification is required.
+        activeRecord.checkoutStatus = 'FINALIZED';
+        activeRecord.checkoutFinalized = true;
+        activeRecord.attendanceStatus = 'RESOLVED';
+        activeRecord.status = 'completed';
+        activeRecord.currentState = 'FINALIZED_CHECKOUT';
+        activeRecord.checkOutMode = 'AUTO_SYSTEM';
+        activeRecord.checkoutType = 'AUTO_CHECKOUT';
+        activeRecord.checkoutSource = 'CONFIRMED_NATIVE_EXIT';
+        activeRecord.resolutionSource = 'AUTO_GEOFENCE';
+        activeRecord.verificationStatus = 'VERIFIED';
+        activeRecord.employeeProvidedCheckoutTime = undefined;
+        activeRecord.employeeProposedCheckoutTime = undefined;
+      } else {
+        // A time changed/entered by the employee is a proposal and requires
+        // admin review because it no longer matches the captured exit event.
+        activeRecord.checkoutStatus = 'UNRESOLVED';
+        activeRecord.checkoutFinalized = false;
+        activeRecord.attendanceStatus = 'UNRESOLVED';
+        activeRecord.status = 'UNRESOLVED';
+        activeRecord.currentState = 'UNRESOLVED';
+        activeRecord.checkOutMode = 'MANUAL';
+        activeRecord.checkoutType = 'MANUAL_CONFIRMED';
+        activeRecord.checkoutSource = 'EMPLOYEE_REPORTED';
+        activeRecord.resolutionSource = 'EMPLOYEE_PROPOSED';
+        activeRecord.verificationStatus = 'PENDING';
+        activeRecord.employeeProvidedCheckoutTime = confirmedTimeStr;
+        activeRecord.employeeProposedCheckoutTime = confirmedTimeStr;
+        activeRecord.resolutionReason = 'Employee changed the automatically suggested exit time; admin verification is required.';
+      }
       activeRecord.pendingCheckoutEventId = null;
       activeRecord.returningToOffice = false;
       activeRecord.exitPromptResolvedOutside = false;
