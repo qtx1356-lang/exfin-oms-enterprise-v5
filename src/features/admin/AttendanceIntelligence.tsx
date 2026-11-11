@@ -294,18 +294,19 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
 
       if (effectiveStatus === 'UNRESOLVED' || effectiveStatus === 'PENDING_ADMIN_REVIEW') {
         const isPendingReview = effectiveStatus === 'PENDING_ADMIN_REVIEW';
+        const proposedCheckoutTime = record.employeeProposedCheckoutTime || record.employeeProvidedCheckoutTime || record.checkOutTime || null;
         unresolvedCheckoutsList.push({
           employee: emp,
           record,
-          issueType: isPendingReview ? 'Pending Review' : 'Unresolved Checkout',
+          issueType: isPendingReview ? 'Pending Admin Verification' : 'Unresolved Checkout',
           description: isPendingReview
-            ? `Employee submitted proposed checkout: ${record.employeeProposedCheckoutTime || '—'}. Admin review required.`
+            ? `Employee-reported checkout: ${proposedCheckoutTime || '—'}. Admin approval required; this is not a verified geofence exit.`
             : `No reliable exit candidate detected on ${record.date}. Status: UNRESOLVED.`,
           severity: 'CRITICAL',
           date: record.date,
           checkIn: record.checkInTime,
-          checkOut: isPendingReview ? `Proposed: ${record.employeeProposedCheckoutTime}` : 'UNRESOLVED',
-          proposedTime: record.employeeProposedCheckoutTime,
+          checkOut: isPendingReview ? `Employee reported: ${proposedCheckoutTime || '—'}` : 'UNRESOLVED',
+          proposedTime: proposedCheckoutTime,
           status: effectiveStatus
         });
       }
