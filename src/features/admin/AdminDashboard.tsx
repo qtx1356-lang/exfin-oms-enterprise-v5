@@ -499,6 +499,7 @@ export const AdminDashboard: React.FC = () => {
 
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [rawFirestoreAttendance, setRawFirestoreAttendance] = useState<AttendanceRecord[]>([]);
+  const [attendanceLoadError, setAttendanceLoadError] = useState<string | null>(null);
   const [liveLocations, setLiveLocations] = useState<LiveEmployeeLocation[]>([]);
   const [expenseRecords, setExpenseRecords] = useState<ExpenseRecord[]>([]);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
@@ -875,19 +876,65 @@ export const AdminDashboard: React.FC = () => {
       checkAllLoaded();
     }, () => { regsLoaded = true; checkAllLoaded(); });
 
-    // Listen to attendance with bounded limit sorted by date descending to get the newest records first
-    const qAttendance = query(collection(db, 'attendance'), orderBy('date', 'desc'), limit(1000));
-    const unsubAttendance = onSnapshot(qAttendance, (snapshot) => {
+    // Attendance listener: surface errors and fall back if the ordered query cannot run.
+    // The fallback also includes documents that do not contain the "date" field.
+    let unsubAttendance = () => {};
+    let attendanceFallbackStarted = false;
+    const handleAttendanceSnapshot = (snapshot: any) => {
       const firestoreAtt: AttendanceRecord[] = [];
-      snapshot.forEach((doc) => {
-        firestoreAtt.push({ id: doc.id, ...doc.data() } as AttendanceRecord);
+      snapshot.forEach((docSnap: any) => {
+        firestoreAtt.push({ id: docSnap.id, ...docSnap.data() } as AttendanceRecord);
       });
       setRawFirestoreAttendance(firestoreAtt);
-      const mergedAtt = processAdminAttendanceRecords(firestoreAtt);
-      setAttendanceRecords(mergedAtt);
+      setAttendanceRecords(processAdminAttendanceRecords(firestoreAtt));
+      setAttendanceLoadError(null);
       attendanceLoaded = true;
       checkAllLoaded();
-    }, () => { attendanceLoaded = true; checkAllLoaded(); });
+      console.info('[AdminAttendance] Firestore snapshot received', {
+        documentCount: firestoreAtt.length,
+        queryMode: attendanceFallbackStarted ? 'unordered-fallback' : 'date-descending'
+      });
+    };
+
+    const startAttendanceFallback = (err: any) => {
+      const code = String(err?.code || 'unknown');
+      const message = String(err?.message || 'Attendance query failed');
+      console.error('[AdminAttendance] Ordered attendance listener failed', { code, message, error: err });
+      setAttendanceLoadError(`Attendance query failed (${code}): ${message}`);
+      if (attendanceFallbackStarted) {
+        attendanceLoaded = true;
+        checkAllLoaded();
+        return;
+      }
+      attendanceFallbackStarted = true;
+      try {
+        const fallbackQuery = query(collection(db, 'attendance'), limit(1000));
+        unsubAttendance = onSnapshot(
+          fallbackQuery,
+          handleAttendanceSnapshot,
+          (fallbackErr) => {
+            const fallbackCode = String(fallbackErr?.code || 'unknown');
+            const fallbackMessage = String(fallbackErr?.message || 'Fallback attendance query failed');
+            console.error('[AdminAttendance] Fallback attendance listener failed', {
+              code: fallbackCode,
+              message: fallbackMessage,
+              error: fallbackErr
+            });
+            setAttendanceLoadError(`Attendance could not be loaded (${fallbackCode}): ${fallbackMessage}`);
+            attendanceLoaded = true;
+            checkAllLoaded();
+          }
+        );
+      } catch (fallbackErr: any) {
+        console.error('[AdminAttendance] Could not start fallback listener', fallbackErr);
+        setAttendanceLoadError(String(fallbackErr?.message || fallbackErr));
+        attendanceLoaded = true;
+        checkAllLoaded();
+      }
+    };
+
+    const qAttendance = query(collection(db, 'attendance'), orderBy('date', 'desc'), limit(1000));
+    unsubAttendance = onSnapshot(qAttendance, handleAttendanceSnapshot, startAttendanceFallback);
 
     // Listen to expenses with reliable ordering and graceful fallback
     let unsubExpenses = () => {};
@@ -2137,6 +2184,14 @@ export const AdminDashboard: React.FC = () => {
               </h3>
               <div className="text-[10px] text-purple-300/60 italic">Click any record to view complete forensic details</div>
             </div>
+
+            {attendanceLoadError && (
+              <div role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
+                <div className="font-bold mb-1">Attendance data could not be loaded normally</div>
+                <div className="break-words">{attendanceLoadError}</div>
+                <div className="mt-1 text-amber-200/70">The panel is attempting a fallback read. If this remains visible, verify the Cloudflare Pages Firebase project/database configuration and Firestore access.</div>
+              </div>
+            )}
 
             {/* Attendance Filter Controls */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 p-3 bg-[#1A0B36]/50 border border-purple-500/10 rounded-xl">
