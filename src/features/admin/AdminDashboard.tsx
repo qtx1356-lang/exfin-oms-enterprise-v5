@@ -65,6 +65,7 @@ import { AttendanceRecord, AttendanceCorrection, LiveEmployeeLocation, Attendanc
 import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasActualCheckIn, sanitizeFirestorePayload, logAttendanceWriteDiagnostic, getAttendanceCanonicalKey, getEarliestCheckInTime, isServerAttendanceAuthoritative, recoverAuthoritativeAdminFields, isAttendanceTimeInFuture } from '../../utils/attendanceUtils';
 import { getStoredAttendanceRecords, saveAttendanceRecord } from '../../services/attendance/attendanceStorage';
 import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
+import { getFormattedDateStr } from '../../services/attendance/automaticAttendanceEngine';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
 import { ExpenseRecord } from '../../types/expense';
 import { TaskRecord, TaskPriority, TaskStatus, AssignmentType, TaskComment, getEffectiveTaskStatus } from '../../types/planner';
@@ -500,6 +501,7 @@ export const AdminDashboard: React.FC = () => {
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [rawFirestoreAttendance, setRawFirestoreAttendance] = useState<AttendanceRecord[]>([]);
   const [attendanceLoadError, setAttendanceLoadError] = useState<string | null>(null);
+  const [todayAttendanceLoadError, setTodayAttendanceLoadError] = useState<string | null>(null);
   const [liveLocations, setLiveLocations] = useState<LiveEmployeeLocation[]>([]);
   const [expenseRecords, setExpenseRecords] = useState<ExpenseRecord[]>([]);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
@@ -613,7 +615,7 @@ export const AdminDashboard: React.FC = () => {
 
     let todayStr = '';
     try {
-      todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+      todayStr = getFormattedDateStr();
     } catch {
       const now = new Date();
       todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -879,14 +881,28 @@ export const AdminDashboard: React.FC = () => {
     // Attendance listener: surface errors and fall back if the ordered query cannot run.
     // The fallback also includes documents that do not contain the "date" field.
     let unsubAttendance = () => {};
+    let unsubTodayAttendance = () => {};
     let attendanceFallbackStarted = false;
+    let baseAttendanceRecords: AttendanceRecord[] = [];
+    const todayAttendanceById = new Map<string, AttendanceRecord>();
+    const publishAttendanceRecords = () => {
+      const mergedById = new Map<string, AttendanceRecord>();
+      [...baseAttendanceRecords, ...todayAttendanceById.values()].forEach((record) => {
+        const stableId = String(record.docId || record.id || getAttendanceCanonicalKey(record));
+        const existing = mergedById.get(stableId);
+        mergedById.set(stableId, existing ? { ...existing, ...record } : record);
+      });
+      const combined = Array.from(mergedById.values());
+      setRawFirestoreAttendance(combined);
+      setAttendanceRecords(processAdminAttendanceRecords(combined));
+    };
     const handleAttendanceSnapshot = (snapshot: any) => {
       const firestoreAtt: AttendanceRecord[] = [];
       snapshot.forEach((docSnap: any) => {
         firestoreAtt.push({ id: docSnap.id, ...docSnap.data() } as AttendanceRecord);
       });
-      setRawFirestoreAttendance(firestoreAtt);
-      setAttendanceRecords(processAdminAttendanceRecords(firestoreAtt));
+      baseAttendanceRecords = firestoreAtt;
+      publishAttendanceRecords();
       setAttendanceLoadError(null);
       attendanceLoaded = true;
       checkAllLoaded();
@@ -935,6 +951,39 @@ export const AdminDashboard: React.FC = () => {
 
     const qAttendance = query(collection(db, 'attendance'), orderBy('date', 'desc'), limit(1000));
     unsubAttendance = onSnapshot(qAttendance, handleAttendanceSnapshot, startAttendanceFallback);
+
+    // Always fetch today's records independently so they cannot be hidden by the
+    // 1,000-record historical window or by documents with inconsistent ordering fields.
+    const todayDateKey = getFormattedDateStr();
+    const qTodayAttendance = query(
+      collection(db, 'attendance'),
+      where('date', '==', todayDateKey)
+    );
+    unsubTodayAttendance = onSnapshot(
+      qTodayAttendance,
+      (snapshot) => {
+        todayAttendanceById.clear();
+        snapshot.forEach((docSnap) => {
+          todayAttendanceById.set(docSnap.id, {
+            id: docSnap.id,
+            docId: docSnap.id,
+            ...docSnap.data()
+          } as AttendanceRecord);
+        });
+        publishAttendanceRecords();
+        setTodayAttendanceLoadError(null);
+        console.info('[AdminAttendance] Dedicated India-date query received', {
+          date: todayDateKey,
+          documentCount: todayAttendanceById.size
+        });
+      },
+      (error) => {
+        const code = String(error?.code || 'unknown');
+        const message = String(error?.message || 'Today attendance query failed');
+        console.error('[AdminAttendance] Dedicated today query failed', { date: todayDateKey, code, message, error });
+        setTodayAttendanceLoadError(`Today's attendance query failed (${code}): ${message}`);
+      }
+    );
 
     // Listen to expenses with reliable ordering and graceful fallback
     let unsubExpenses = () => {};
@@ -1026,6 +1075,7 @@ export const AdminDashboard: React.FC = () => {
     return () => {
       unsubRegs();
       unsubAttendance();
+      unsubTodayAttendance();
       unsubExpenses();
       unsubTasks();
       unsubLeaves();
@@ -2190,6 +2240,12 @@ export const AdminDashboard: React.FC = () => {
                 <div className="font-bold mb-1">Attendance data could not be loaded normally</div>
                 <div className="break-words">{attendanceLoadError}</div>
                 <div className="mt-1 text-amber-200/70">The panel is attempting a fallback read. If this remains visible, verify the Cloudflare Pages Firebase project/database configuration and Firestore access.</div>
+              </div>
+            )}
+            {todayAttendanceLoadError && (
+              <div role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-xs text-red-200">
+                <div className="font-bold mb-1">Today's attendance could not be read</div>
+                <div className="break-words">{todayAttendanceLoadError}</div>
               </div>
             )}
 
