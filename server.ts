@@ -521,6 +521,44 @@ async function startServer() {
     }
   }
 
+  // Device-token registration is allowed only for accounts that are currently
+  // approved/active. Keep this check server-side; client role claims are not trusted.
+  async function videoCallerIsActive(caller: {
+    uid: string;
+    role: string;
+    employeeId?: string;
+    isAdmin: boolean;
+  }): Promise<boolean> {
+    if (!db) return false;
+
+    const acceptedStatuses = new Set(["ACTIVE", "APPROVED", "APPROVED / ACTIVE"]);
+    if (caller.isAdmin) {
+      const adminSnap = await db.collection("admin_users").doc(caller.uid).get();
+      if (!adminSnap.exists) return false;
+      const data = adminSnap.data() || {};
+      const role = String(data.role || "").trim().toUpperCase();
+      const status = String(data.status || data.accountStatus || "ACTIVE").trim().toUpperCase();
+      return ["SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEADER"].includes(role)
+        && data.active !== false
+        && acceptedStatuses.has(status);
+    }
+
+    let registrationSnap = caller.employeeId
+      ? await db.collection("registrations").doc(caller.employeeId).get()
+      : await db.collection("registrations").doc(caller.uid).get();
+    if (!registrationSnap.exists) {
+      const byUid = await db.collection("registrations").where("uid", "==", caller.uid).limit(1).get();
+      if (byUid.empty) return false;
+      registrationSnap = byUid.docs[0];
+    }
+
+    const data = registrationSnap.data() || {};
+    const status = String(
+      data.status || data.accountStatus || data.registrationStatus || data.approvalStatus || ""
+    ).trim().toUpperCase();
+    return data.active !== false && acceptedStatuses.has(status);
+  }
+
 
   app.post("/api/notifications/register-device", async (req, res) => {
     const caller = await verifyCaller(req);

@@ -225,6 +225,9 @@ export interface AttendanceRecord {
   lastObservation?: AttendanceObservation;
   exitObservations?: AttendanceObservation[];
   returnObservations?: AttendanceObservation[];
+  /** Resume GPS observation only; not an authoritative geofence-return event. */
+  returnObservationAt?: string | null;
+  returnObservationSource?: EvidenceSource | string | null;
 
   // Work From Home (WFH) fields
   wfhReason?: string | null;

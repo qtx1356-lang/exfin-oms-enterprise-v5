@@ -10,7 +10,7 @@ import {
   trackResourceCreated,
   trackResourceCleaned,
 } from '../monitoring/performanceDiagnostics';
-import { registerNativeOfficeGeofence, initNativeGeofenceListener, reconcileNativeGeofenceEvents, startNativeActiveSession } from './nativeGeofenceBridge';
+import { NativeGeofencePlugin, registerNativeOfficeGeofence, initNativeGeofenceListener, reconcileNativeGeofenceEvents, startNativeActiveSession } from './nativeGeofenceBridge';
 import { isAdminContextActive } from '../../utils/attendanceUtils';
 import { reconcileAttendanceOnResume } from './resumeReconciliation';
 
