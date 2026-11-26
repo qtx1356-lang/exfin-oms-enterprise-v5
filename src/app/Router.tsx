@@ -207,6 +207,14 @@ export const AppRouter: React.FC = () => {
         {/* Super Admin Routes (Backward Compatibility Redirect) */}
         <Route path="/super-admin/*" element={<Navigate to="/x7Kp9/dashboard" replace />} />
 
+        {/* Standalone browser employee portal. Uses the same employee identity, guards and attendance engine as the native app. */}
+        <Route element={<EmployeeGuard />}>
+          <Route path="/employee" element={<Layout />}>
+            <Route index element={<EmployeeDashboard />} />
+            <Route path="attendance" element={<FeatureGuard feature="attendance"><AttendanceScreen /></FeatureGuard>} />
+          </Route>
+        </Route>
+
         {/* Normal Exfin OMS PWA Flow */}
         <Route element={<EmployeeGuard />}>
           <Route path="/" element={<Layout />}>
