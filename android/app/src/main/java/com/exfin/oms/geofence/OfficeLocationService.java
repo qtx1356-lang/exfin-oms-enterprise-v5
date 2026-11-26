@@ -32,7 +32,14 @@ import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+
 import org.json.JSONObject;
+
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.io.OutputStream;
 
 /**
  * Native foreground location service for automatic office attendance.
@@ -276,6 +283,67 @@ public class OfficeLocationService extends Service {
         }
     }
 
+    private void publishLiveLocationIfDue(double latitude, double longitude, float accuracy, long timestamp) {
+        SharedPreferences prefs = getSharedPreferences(OfficeGeofenceHelper.PREFS_NAME, MODE_PRIVATE);
+        long now = System.currentTimeMillis();
+        long lastAttempt = prefs.getLong("native_live_location_last_attempt", 0L);
+        if (now - lastAttempt < 30000L) return;
+
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            Log.w(TAG, "Native live location skipped: authenticated Firebase session is not ready.");
+            return;
+        }
+
+        // Throttle attempts, not successful writes, to avoid creating a request for every GPS fix.
+        prefs.edit().putLong("native_live_location_last_attempt", now).apply();
+        user.getIdToken(false).addOnSuccessListener(tokenResult -> {
+            String idToken = tokenResult != null ? tokenResult.getToken() : null;
+            if (idToken == null || idToken.isEmpty()) return;
+            String serverUrl = prefs.getString("server_url", "");
+            if (serverUrl == null || serverUrl.trim().isEmpty()) {
+                Log.w(TAG, "Native live location skipped: API server URL is missing.");
+                return;
+            }
+            final String endpoint = serverUrl.replaceAll("/+$", "") + "/api/native-live-location";
+            new Thread(() -> {
+                HttpURLConnection connection = null;
+                try {
+                    URL url = new URL(endpoint);
+                    connection = (HttpURLConnection) url.openConnection();
+                    connection.setRequestMethod("POST");
+                    connection.setConnectTimeout(10000);
+                    connection.setReadTimeout(10000);
+                    connection.setDoOutput(true);
+                    connection.setRequestProperty("Authorization", "Bearer " + idToken);
+                    connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+
+                    JSONObject payload = new JSONObject();
+                    payload.put("latitude", latitude);
+                    payload.put("longitude", longitude);
+                    payload.put("accuracy", accuracy);
+                    payload.put("timestamp", timestamp);
+                    byte[] body = payload.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                    connection.setFixedLengthStreamingMode(body.length);
+                    try (OutputStream output = connection.getOutputStream()) {
+                        output.write(body);
+                    }
+                    int status = connection.getResponseCode();
+                    if (status >= 200 && status < 300) {
+                        Log.d(TAG, "Authenticated native live location published.");
+                    } else {
+                        Log.w(TAG, "Native live location publish failed with HTTP " + status);
+                    }
+                } catch (Exception e) {
+                    Log.w(TAG, "Native live location publish failed; a later GPS fix will retry: " + e.getMessage());
+                } finally {
+                    if (connection != null) connection.disconnect();
+                }
+            }, "ExfinLiveLocationUpload").start();
+        }).addOnFailureListener(error ->
+                Log.w(TAG, "Could not refresh native Firebase ID token for live location: " + error.getMessage()));
+    }
+
     private void processLocationUpdate(Location location) {
         if (location == null) return;
 
@@ -291,6 +359,10 @@ public class OfficeLocationService extends Service {
             Log.d(TAG, "Ignoring location update due to poor accuracy: " + accuracy + "m > " + OfficeGeofenceHelper.MAX_USABLE_ACCURACY_METERS + "m");
             return;
         }
+
+        // Map reporting is deliberately separate from attendance transition processing.
+        // Publish at a controlled cadence; this method never writes attendance records.
+        publishLiveLocationIfDue(lat, lng, accuracy, time);
 
         JSONObject activeSession = OfficeGeofenceHelper.getActiveSession(this);
 
