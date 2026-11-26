@@ -379,7 +379,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
               
               // Cache latest data
               try {
-                localStorage.setItem('cached_registration_data', JSON.stringify({ ...data, id: savedRegId }));
+                setRegistrationStorage('cached_registration_data', JSON.stringify({ ...data, id: savedRegId }));
               } catch (e) {}
 
               // Check status restrictions
