@@ -560,6 +560,95 @@ async function startServer() {
   }
 
 
+  // Issue a short-lived native Firebase session only to an authenticated, approved employee.
+  // The native location service uses this identity for live-location-only writes.
+  app.post("/api/native-location-session", async (req, res) => {
+    try {
+      if (!authAdmin || !db) return res.status(503).json({ error: "Authentication service unavailable." });
+      const caller = await verifyCaller(req);
+      if (!caller) return res.status(401).json({ error: "Authentication required." });
+      if (caller.isAdmin || !caller.employeeId) return res.status(403).json({ error: "An approved employee account is required." });
+
+      let registration = await db.collection("registrations").doc(caller.employeeId).get();
+      if (!registration.exists) {
+        const byUid = await db.collection("registrations").where("uid", "==", caller.uid).limit(1).get();
+        if (byUid.empty) return res.status(403).json({ error: "Employee registration could not be verified." });
+        registration = byUid.docs[0];
+      }
+      const employee = registration.data() || {};
+      const status = String(employee.status || employee.accountStatus || employee.registrationStatus || employee.approvalStatus || "").trim().toUpperCase();
+      if (employee.active === false || employee.isDeleted === true || !["APPROVED", "ACTIVE", "APPROVED / ACTIVE"].includes(status)) {
+        return res.status(403).json({ error: "Employee account is not approved and active." });
+      }
+
+      // Use the existing authenticated Firebase UID; never accept employee identity from request body.
+      const customToken = await authAdmin.createCustomToken(caller.uid, {
+        exfinEmployeeId: registration.id,
+        exfinNativeLocation: true
+      });
+      return res.json({ customToken, employeeId: registration.id });
+    } catch (error) {
+      console.error("[NativeLocation] Session issuance failed:", error);
+      return res.status(500).json({ error: "Could not establish native location session." });
+    }
+  });
+
+  // Authenticated live-location write. This route never changes attendance documents.
+  app.post("/api/native-live-location", async (req, res) => {
+    try {
+      if (!db) return res.status(503).json({ error: "Location service unavailable." });
+      const caller = await verifyCaller(req);
+      if (!caller || caller.isAdmin || !caller.employeeId) return res.status(401).json({ error: "Authenticated employee session required." });
+      if (!(await videoCallerIsActive(caller))) return res.status(403).json({ error: "Employee account is not active." });
+
+      const latitude = Number(req.body?.latitude);
+      const longitude = Number(req.body?.longitude);
+      const accuracy = Number(req.body?.accuracy);
+      const timestampMs = Number(req.body?.timestamp);
+      if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
+          !Number.isFinite(longitude) || longitude < -180 || longitude > 180 ||
+          (latitude === 0 && longitude === 0) ||
+          !Number.isFinite(accuracy) || accuracy <= 0 || accuracy > 100 ||
+          !Number.isFinite(timestampMs) || timestampMs > Date.now() + 300000 || Date.now() - timestampMs > 10 * 60 * 1000) {
+        return res.status(400).json({ error: "Invalid or stale location sample." });
+      }
+
+      const employeeId = caller.employeeId;
+      const registration = await db.collection("registrations").doc(employeeId).get();
+      if (!registration.exists) return res.status(403).json({ error: "Employee registration not found." });
+      const employee = registration.data() || {};
+      const status = String(employee.status || employee.accountStatus || employee.registrationStatus || employee.approvalStatus || "").trim().toUpperCase();
+      if (employee.active === false || employee.isDeleted === true || !["APPROVED", "ACTIVE", "APPROVED / ACTIVE"].includes(status)) {
+        return res.status(403).json({ error: "Employee account is not active." });
+      }
+
+      const ref = db.collection("live_locations").doc(employeeId);
+      const sampleTime = new Date(timestampMs);
+      const distance = calculateDistanceInMeters(latitude, longitude, OFFICE_LAT, OFFICE_LNG);
+      await db.runTransaction(async (tx) => {
+        const existing = await tx.get(ref);
+        const previousMs = existing.exists ? new Date(existing.data()?.timestamp || 0).getTime() : 0;
+        if (previousMs > timestampMs) return; // Never let an older queued sample overwrite a newer fix.
+        tx.set(ref, {
+          employeeId,
+          employeeName: employee.name || "Employee",
+          latitude,
+          longitude,
+          accuracy,
+          distanceFromOffice: distance,
+          townCity: employee.townCity || "Main Office",
+          timestamp: sampleTime.toISOString(),
+          updatedAt: new Date().toISOString(),
+          source: "NATIVE_BACKGROUND_LIVE_LOCATION"
+        }, { merge: true });
+      });
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("[NativeLocation] Live location update failed:", error);
+      return res.status(500).json({ error: "Could not update live location." });
+    }
+  });
+
   app.post("/api/notifications/register-device", async (req, res) => {
     const caller = await verifyCaller(req);
     if (!caller) return res.status(401).json({ success: false, error: "Authentication required." });

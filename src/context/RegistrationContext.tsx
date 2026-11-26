@@ -167,14 +167,18 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const empName = employeeData.name || employeeData.fullName || 'Employee';
       const townCity = employeeData.townCity || 'Raniganj HQ';
       if (empId) {
-        syncEmployeeIdentityToNative({
-          id: empId,
-          name: empName,
-          townCity
-        }).catch(() => {});
+        void (async () => {
+          const firebaseIdToken = authUser ? await authUser.getIdToken() : undefined;
+          await syncEmployeeIdentityToNative({
+            id: empId,
+            name: empName,
+            townCity,
+            firebaseIdToken
+          });
+        })().catch((error) => console.warn('[NativeLocation] Could not refresh native location session:', error));
       }
     }
-  }, [employeeData, status]);
+  }, [employeeData, status, authUser?.uid]);
 
   // ROOT-CAUSE IDENTITY FLOW FIX: Auto-link authenticated user (Admin/TL) to Employee Registration
   useEffect(() => {
