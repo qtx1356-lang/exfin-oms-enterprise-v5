@@ -23,6 +23,7 @@ interface RegistrationContextType {
   submitRegistration: (name: string, mobileNumber: string, selfieBase64: string) => Promise<void>;
   verifyMobileForRecovery: (mobileNumber: string) => Promise<boolean>;
   resetRegistration: () => void;
+  resetEmployeePortalSession: () => void;
   authUser: User | null;
   recoveryMobileInput: string;
   setRecoveryMobileInput: (val: string) => void;
@@ -801,6 +802,21 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setRecoveryMobileInput('');
   };
 
+  // The shared browser portal needs its own account-switch action. This must
+  // never invalidate the native app's device/FCM registration or notification data.
+  const resetEmployeePortalSession = () => {
+    if (!isEmployeePortalPath()) return;
+    removeRegistrationStorage('registrationId');
+    removeRegistrationStorage('cached_registration_data');
+    setLocalRegId(null);
+    setStatus('mobile_recovery');
+    setRejectionReason(undefined);
+    setEmployeeData(null);
+    setRecoveryMobileInput('');
+    setRecoveryError(null);
+    setRecoveryLoading(false);
+  };
+
   const contextValue = React.useMemo(
     () => ({
       status,
@@ -809,6 +825,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       submitRegistration,
       verifyMobileForRecovery,
       resetRegistration,
+      resetEmployeePortalSession,
       authUser,
       recoveryMobileInput,
       setRecoveryMobileInput,
@@ -820,6 +837,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       rejectionReason,
       employeeData,
       verifyMobileForRecovery,
+      resetEmployeePortalSession,
       authUser,
       recoveryMobileInput,
       recoveryError,
