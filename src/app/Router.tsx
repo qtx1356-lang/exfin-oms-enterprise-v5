@@ -98,7 +98,8 @@ const AdminPortalPublicRoute = () => {
 const getTime = () => new Date().toISOString().substring(11, 23);
 
 const EmployeeGuard = () => {
-  const { status } = useRegistration();
+  const { status, resetEmployeePortalSession } = useRegistration();
+  const isStandaloneEmployeePortal = typeof window !== 'undefined' && window.location.pathname.startsWith('/employee');
   const [showWelcome, setShowWelcome] = React.useState(() => {
     try {
       return sessionStorage.getItem('exfin_welcome_dismissed') !== 'true';
@@ -137,6 +138,24 @@ const EmployeeGuard = () => {
   if (status === 'Pending Approval') return <PendingApproval />;
   if (status === 'Rejected') return <RejectedScreen />;
   if (status === 'suspended_notice') return <SuspendedNoticeScreen />;
+
+  if (isStandaloneEmployeePortal && status === 'Approved') {
+    return (
+      <>
+        <div className="sticky top-0 z-40 flex items-center justify-end gap-2 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2">
+          <span className="text-xs text-[var(--text-secondary)]">Using the wrong account?</span>
+          <button
+            type="button"
+            onClick={resetEmployeePortalSession}
+            className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-elevated)]"
+          >
+            Not your account? Switch employee
+          </button>
+        </div>
+        <Outlet />
+      </>
+    );
+  }
 
   return <Outlet />;
 };
