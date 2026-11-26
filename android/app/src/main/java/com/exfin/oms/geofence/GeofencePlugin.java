@@ -12,6 +12,8 @@ import android.util.Log;
 
 import androidx.core.content.ContextCompat;
 
+import com.google.firebase.auth.FirebaseAuth;
+
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -206,6 +208,26 @@ public class GeofencePlugin extends Plugin {
         } catch (Exception e) {
             call.reject("Failed to remove office geofence: " + e.getMessage(), e);
         }
+    }
+
+    @PluginMethod
+    public void establishNativeLocationSession(PluginCall call) {
+        String customToken = call.getString("customToken");
+        if (customToken == null || customToken.trim().isEmpty()) {
+            call.reject("Missing native location session token");
+            return;
+        }
+        FirebaseAuth.getInstance().signInWithCustomToken(customToken)
+                .addOnSuccessListener(result -> {
+                    JSObject response = new JSObject();
+                    response.put("success", true);
+                    response.put("uid", result.getUser() != null ? result.getUser().getUid() : "");
+                    call.resolve(response);
+                })
+                .addOnFailureListener(error -> {
+                    Log.e(TAG, "Native Firebase location session sign-in failed", error);
+                    call.reject("Could not establish native location session", error);
+                });
     }
 
     @PluginMethod
