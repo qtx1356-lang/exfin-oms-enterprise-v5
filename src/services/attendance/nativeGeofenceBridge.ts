@@ -53,6 +53,7 @@ export interface NativeGeofencePluginInterface {
   getUnconsumedNativeEvents(): Promise<{ events: NativeAttendanceEvent[] }>;
   removeOfficeGeofence(): Promise<{ success: boolean }>;
   setEmployeeIdentity(identity: { id: string; name: string; townCity: string; serverUrl: string }): Promise<void>;
+  establishNativeLocationSession(options: { customToken: string }): Promise<{ success: boolean; uid: string }>;
   startActiveSession(session: { employeeId: string; employeeName: string; townCity: string; date: string; checkInTime: string }): Promise<{ success: boolean }>;
   clearActiveSession(): Promise<{ success: boolean }>;
   cancelPendingExit(): Promise<{ success: boolean }>;
@@ -663,6 +664,7 @@ export const syncEmployeeIdentityToNative = async (identity: {
   name: string;
   townCity?: string;
   serverUrl?: string;
+  firebaseIdToken?: string;
 }): Promise<void> => {
   if (!Capacitor.isNativePlatform() || !identity.id) return;
   try {
@@ -677,6 +679,17 @@ export const syncEmployeeIdentityToNative = async (identity: {
       townCity: identity.townCity || 'Raniganj HQ',
       serverUrl: authoritativeServerUrl
     });
+    if (identity.firebaseIdToken) {
+      const response = await fetch(`${authoritativeServerUrl}/api/native-location-session`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${identity.firebaseIdToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      if (!response.ok) throw new Error(`Native location session rejected (${response.status})`);
+      const payload = await response.json();
+      if (!payload?.customToken) throw new Error('Native location session token missing');
+      await NativeGeofencePlugin.establishNativeLocationSession({ customToken: payload.customToken });
+    }
     console.log(`[NativeGeofenceBridge] Configured native employee identity: ${identity.id} (${identity.name}) - Server: ${authoritativeServerUrl}`);
   } catch (err) {
     console.warn('[NativeGeofenceBridge] Failed to set native employee identity:', err);
