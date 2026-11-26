@@ -43,7 +43,7 @@ const normalizeMobile = (num: string): string => {
 };
 
 const isEmployeePortalPath = (): boolean =>
-  isEmployeePortalPath();
+  typeof window !== 'undefined' && window.location.pathname.startsWith('/employee');
 
 // Keep the public browser portal's saved employee identity separate from the
 // native/PWA employee session on the same origin. This prevents a profile
@@ -200,8 +200,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     // an employee profile there from a browser's Firebase session (including an
     // email fallback). A fresh portal session must use the explicit mobile
     // recovery/registration flow so one employee cannot inherit another profile.
-    const isStandaloneEmployeePortal =
-      typeof window !== 'undefined' && window.location.pathname.startsWith('/employee');
+    const isStandaloneEmployeePortal = isEmployeePortalPath();
 
     if (!isStandaloneEmployeePortal && authUser && status === 'mobile_recovery' && !localRegId && activeDb && navigator.onLine) {
       const autoLink = async () => {
