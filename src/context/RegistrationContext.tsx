@@ -181,7 +181,14 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     let isMounted = true;
     const activeDb = db.concrete || db;
     
-    if (authUser && status === 'mobile_recovery' && !localRegId && activeDb && navigator.onLine) {
+    // The standalone employee portal is a shared public URL. Never auto-assign
+    // an employee profile there from a browser's Firebase session (including an
+    // email fallback). A fresh portal session must use the explicit mobile
+    // recovery/registration flow so one employee cannot inherit another profile.
+    const isStandaloneEmployeePortal =
+      typeof window !== 'undefined' && window.location.pathname.startsWith('/employee');
+
+    if (!isStandaloneEmployeePortal && authUser && status === 'mobile_recovery' && !localRegId && activeDb && navigator.onLine) {
       const autoLink = async () => {
         try {
           console.log(`[REGISTRATION_AUTO_LINK] Attempting to link authenticated user: ${authUser.uid}`);
