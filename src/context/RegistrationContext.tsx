@@ -42,6 +42,21 @@ const normalizeMobile = (num: string): string => {
   return digits;
 };
 
+const isEmployeePortalPath = (): boolean =>
+  isEmployeePortalPath();
+
+// Keep the public browser portal's saved employee identity separate from the
+// native/PWA employee session on the same origin. This prevents a profile
+// already cached by another app route from appearing in /employee.
+const registrationStorageKey = (key: string): string =>
+  isEmployeePortalPath() ? `employee_portal_${key}` : key;
+const getRegistrationStorage = (key: string): string | null =>
+  localStorage.getItem(registrationStorageKey(key));
+const setRegistrationStorage = (key: string, value: string): void =>
+  localStorage.setItem(registrationStorageKey(key), value);
+const removeRegistrationStorage = (key: string): void =>
+  localStorage.removeItem(registrationStorageKey(key));
+
 const getTime = () => new Date().toISOString().substring(11, 23);
 
 export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -50,10 +65,10 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return () => console.log(`[FLICKER-TRACE] RegistrationProvider UNMOUNT ${getTime()}`);
   }, []);
 
-  const [localRegId, setLocalRegId] = useState<string | null>(() => localStorage.getItem('registrationId'));
+  const [localRegId, setLocalRegId] = useState<string | null>(() => getRegistrationStorage('registrationId'));
   const [employeeData, setEmployeeData] = useState<any>(() => {
     try {
-      const raw = localStorage.getItem('cached_registration_data');
+      const raw = getRegistrationStorage('cached_registration_data');
       return raw ? JSON.parse(raw) : null;
     } catch {
       return null;
@@ -82,10 +97,10 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     });
   }, []);
   const [status, setStatus] = useState<RegistrationStatus>(() => {
-    const savedRegId = localStorage.getItem('registrationId');
+    const savedRegId = getRegistrationStorage('registrationId');
     if (!savedRegId) return 'mobile_recovery';
     try {
-      const raw = localStorage.getItem('cached_registration_data');
+      const raw = getRegistrationStorage('cached_registration_data');
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed.status === 'Suspended' || parsed.status === 'Blocked' || parsed.status === 'INACTIVE') {
@@ -127,7 +142,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     // canonical employee identity when Firebase Auth has issued a new/anonymous UID.
     let cachedRegistration: any = null;
     try {
-      const raw = localStorage.getItem('cached_registration_data');
+      const raw = getRegistrationStorage('cached_registration_data');
       cachedRegistration = raw ? JSON.parse(raw) : null;
     } catch {
       cachedRegistration = null;
@@ -140,7 +155,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       || cachedRegistration?.employeeId
       || cachedRegistration?.id
       || localRegId
-      || localStorage.getItem('registrationId')
+      || getRegistrationStorage('registrationId')
       || ''
     ).trim();
 
@@ -215,8 +230,8 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             const regId = foundDoc.id;
             console.log(`[REGISTRATION_AUTO_LINK] Success! Linked to: ${data.name} (${regId})`);
             
-            localStorage.setItem('registrationId', regId);
-            localStorage.setItem('cached_registration_data', JSON.stringify({ ...data, id: regId }));
+            setRegistrationStorage('registrationId', regId);
+            setRegistrationStorage('cached_registration_data', JSON.stringify({ ...data, id: regId }));
             
             setLocalRegId(regId);
             setEmployeeDataIfChanged(data);
@@ -316,11 +331,11 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
 
       try {
-        const savedRegId = localStorage.getItem('registrationId');
+        const savedRegId = getRegistrationStorage('registrationId');
         
         if (savedRegId) {
           // Pre-populate with locally cached registration data if available
-          const cachedDataRaw = localStorage.getItem('cached_registration_data');
+          const cachedDataRaw = getRegistrationStorage('cached_registration_data');
           if (cachedDataRaw) {
             try {
               const cachedData = JSON.parse(cachedDataRaw);
@@ -407,7 +422,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                     const liveData = docSnap.data();
                     const liveStatus = liveData.status || 'Pending Approval';
                     try {
-                      localStorage.setItem('cached_registration_data', JSON.stringify({ ...liveData, id: savedRegId }));
+                      setRegistrationStorage('cached_registration_data', JSON.stringify({ ...liveData, id: savedRegId }));
                     } catch (e) {}
                     if (liveStatus === 'Suspended' || liveStatus === 'Blocked' || liveStatus === 'INACTIVE' || liveStatus === 'Rejected') {
                       setStatus('suspended_notice');
@@ -417,8 +432,8 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                     }
                     setEmployeeDataIfChanged(liveData);
                   } else {
-                    localStorage.removeItem('registrationId');
-                    localStorage.removeItem('cached_registration_data');
+                    removeRegistrationStorage('registrationId');
+                    removeRegistrationStorage('cached_registration_data');
                     setLocalRegId(null);
                     setEmployeeData(null);
                     setStatus('unregistered');
@@ -432,8 +447,8 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             } else {
               // Doc explicitly does not exist on server
               if (navigator.onLine) {
-                localStorage.removeItem('registrationId');
-                localStorage.removeItem('cached_registration_data');
+                removeRegistrationStorage('registrationId');
+                removeRegistrationStorage('cached_registration_data');
                 if (isMounted) {
                   setLocalRegId(null);
                   setEmployeeData(null);
@@ -478,10 +493,10 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       } catch (err: any) {
         console.error('Registration init error:', err);
         // Fallback for offline / network timeout: preserve local session if registration ID exists
-        const savedRegId = localStorage.getItem('registrationId');
+        const savedRegId = getRegistrationStorage('registrationId');
         if (savedRegId && isMounted) {
           setLocalRegId(savedRegId);
-          const cachedDataRaw = localStorage.getItem('cached_registration_data');
+          const cachedDataRaw = getRegistrationStorage('cached_registration_data');
           if (cachedDataRaw) {
             try {
               const cachedData = JSON.parse(cachedDataRaw);
@@ -592,7 +607,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
 
       if (regStatus === 'Pending Approval') {
-        localStorage.setItem('registrationId', regId);
+        setRegistrationStorage('registrationId', regId);
         setLocalRegId(regId);
         setEmployeeData(regData);
         setStatus('Pending Approval');
@@ -616,9 +631,9 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         timeoutPromise
       ]);
 
-      localStorage.setItem('registrationId', regId);
+      setRegistrationStorage('registrationId', regId);
       try {
-        localStorage.setItem('cached_registration_data', JSON.stringify({ ...regData, deviceId }));
+        setRegistrationStorage('cached_registration_data', JSON.stringify({ ...regData, deviceId }));
       } catch (e) {}
 
       setLocalRegId(regId);
@@ -754,9 +769,9 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         timeoutPromise
       ]);
 
-      localStorage.setItem('registrationId', registrationId);
+      setRegistrationStorage('registrationId', registrationId);
       try {
-        localStorage.setItem('cached_registration_data', JSON.stringify(registrationData));
+        setRegistrationStorage('cached_registration_data', JSON.stringify(registrationData));
       } catch (e) {}
 
       setLocalRegId(registrationId);
@@ -778,8 +793,8 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
     clearNotificationStorageForUser(empCode || empId);
     dispatchNotificationsUpdated();
-    localStorage.removeItem('registrationId');
-    localStorage.removeItem('cached_registration_data');
+    removeRegistrationStorage('registrationId');
+    removeRegistrationStorage('cached_registration_data');
     setLocalRegId(null);
     setStatus('mobile_recovery');
     setRejectionReason(undefined);
