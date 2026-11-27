@@ -228,6 +228,50 @@ export const processAttendanceStateTransition = (
 };
 
 /**
+ * Desktop browser attendance stores no GPS coordinates and never starts the Android geofence session.
+ */
+export const performPcBrowserCheckIn = (employeeId: string, employeeName: string): AttendanceRecord => {
+  const date = getFormattedDateStr();
+  const existing = getTodayAttendanceRecord(employeeId, date);
+  if (existing) return existing;
+  const now = new Date();
+  const time = getFormattedTimeStr(now);
+  const record = {
+    id: generateUUID(), docId: employeeId + '_' + date, employeeId, employeeName: employeeName || 'Employee', date,
+    attendanceType: 'OFFICE' as AttendanceType, checkInTime: time, checkInAt: now.toISOString(),
+    checkOutTime: null, workingHours: null, latitude: undefined, longitude: undefined, distance: undefined,
+    townCity: 'Location unavailable', checkInMode: 'MANUAL' as CheckInMode, checkOutMode: 'N/A' as CheckOutMode,
+    exitTime: null, returnTime: null, reason: null, reminderCount: 0, createdAtDeviceTime: now.toISOString(),
+    syncStatus: 'Pending' as SyncStatus, serverSyncTime: null, isOffline: !navigator.onLine,
+    currentState: 'CHECKED_IN' as AttendanceState, status: 'active' as const,
+    attendanceSource: 'PC_NO_GPS', locationUnavailable: true, checkInLocationSource: 'PC_NO_GPS',
+    checkoutLocationSource: null, checkInTownCity: 'Location unavailable', checkoutTownCity: 'Location unavailable'
+  } as unknown as AttendanceRecord;
+  saveAttendanceRecord(record);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
+  if (navigator.onLine) syncPendingAttendanceRecords().catch((e) => console.warn('[PC Attendance] Sync error:', e));
+  return record;
+};
+
+export const performPcBrowserCheckOut = (record: AttendanceRecord): AttendanceRecord => {
+  if (!record || record.checkOutTime) return record;
+  const now = new Date();
+  const checkOutTime = getFormattedTimeStr(now);
+  const updated = {
+    ...record, checkOutTime, workingHours: calculateWorkingHours(record.checkInTime, checkOutTime),
+    checkOutMode: 'MANUAL' as CheckOutMode, checkoutType: 'MANUAL', checkoutSource: 'PC_NO_GPS',
+    checkoutFinalizationSource: 'MANUAL_CHECKOUT', checkoutStatus: 'FINALIZED' as const,
+    attendanceStatus: 'RESOLVED' as const, status: 'completed' as const, checkoutFinalized: true,
+    checkoutConfirmed: true, checkoutFinalizedAt: now.toISOString(), currentState: 'FINALIZED_CHECKOUT' as AttendanceState,
+    checkoutLocationSource: 'PC_NO_GPS', checkoutTownCity: 'Location unavailable', locationUnavailable: true,
+    syncStatus: 'Pending' as SyncStatus, updatedAt: now.toISOString(), version: (record.version || 1) + 1
+  };
+  saveAttendanceRecord(updated);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
+  if (navigator.onLine) syncPendingAttendanceRecords().catch((e) => console.warn('[PC Attendance] Sync error:', e));
+  return updated;
+};
+/**
  * Standard Manual or Auto Check-In Handler
  */
 export const performCheckIn = (
