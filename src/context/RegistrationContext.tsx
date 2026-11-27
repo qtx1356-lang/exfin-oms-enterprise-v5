@@ -51,12 +51,70 @@ const isEmployeePortalPath = (): boolean =>
 // already cached by another app route from appearing in /employee.
 const registrationStorageKey = (key: string): string =>
   isEmployeePortalPath() ? `employee_portal_${key}` : key;
-const getRegistrationStorage = (key: string): string | null =>
-  localStorage.getItem(registrationStorageKey(key));
-const setRegistrationStorage = (key: string, value: string): void =>
-  localStorage.setItem(registrationStorageKey(key), value);
-const removeRegistrationStorage = (key: string): void =>
-  localStorage.removeItem(registrationStorageKey(key));
+
+// The employee portal is a shared browser URL. Keep its registration ID in a
+// first-party, path-scoped persistent cookie as a fallback so a normal page
+// refresh can restore the same employee if localStorage is unavailable/cleared.
+// The cookie contains only the opaque registration document ID, never a mobile
+// number or cached employee profile.
+const getPortalRegistrationCookie = (): string | null => {
+  if (typeof document === 'undefined' || !isEmployeePortalPath()) return null;
+  try {
+    const prefix = 'exfin_employee_portal_registration=';
+    const item = document.cookie.split('; ').find((part) => part.startsWith(prefix));
+    return item ? decodeURIComponent(item.slice(prefix.length)) : null;
+  } catch {
+    return null;
+  }
+};
+
+const setPortalRegistrationCookie = (value: string): void => {
+  if (typeof document === 'undefined' || !isEmployeePortalPath()) return;
+  try {
+    document.cookie = `exfin_employee_portal_registration=${encodeURIComponent(value)}; Max-Age=31536000; Path=/employee; SameSite=Lax; Secure`;
+  } catch {}
+};
+
+const clearPortalRegistrationCookie = (): void => {
+  if (typeof document === 'undefined' || !isEmployeePortalPath()) return;
+  try {
+    document.cookie = 'exfin_employee_portal_registration=; Max-Age=0; Path=/employee; SameSite=Lax; Secure';
+  } catch {}
+};
+
+const getRegistrationStorage = (key: string): string | null => {
+  const storageKey = registrationStorageKey(key);
+  try {
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      if (isEmployeePortalPath() && key === 'registrationId') {
+        setPortalRegistrationCookie(stored);
+      }
+      return stored;
+    }
+  } catch {}
+  return isEmployeePortalPath() && key === 'registrationId'
+    ? getPortalRegistrationCookie()
+    : null;
+};
+
+const setRegistrationStorage = (key: string, value: string): void => {
+  try {
+    localStorage.setItem(registrationStorageKey(key), value);
+  } catch {}
+  if (isEmployeePortalPath() && key === 'registrationId') {
+    setPortalRegistrationCookie(value);
+  }
+};
+
+const removeRegistrationStorage = (key: string): void => {
+  try {
+    localStorage.removeItem(registrationStorageKey(key));
+  } catch {}
+  if (isEmployeePortalPath() && key === 'registrationId') {
+    clearPortalRegistrationCookie();
+  }
+};
 
 const getTime = () => new Date().toISOString().substring(11, 23);
 
