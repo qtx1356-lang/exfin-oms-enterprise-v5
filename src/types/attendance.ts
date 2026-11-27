@@ -213,6 +213,11 @@ export interface AttendanceRecord {
   checkoutType?: 'AUTO_CHECKOUT' | 'MANUAL' | string;
   status?: 'completed' | 'active' | string;
   locationUnavailableDuringDay?: boolean;
+  /** Identifies desktop browser attendance that intentionally has no GPS coordinates. */
+  attendanceSource?: 'PC_NO_GPS' | 'BROWSER_GPS' | 'NATIVE_ANDROID' | string;
+  locationUnavailable?: boolean;
+  checkInLocationSource?: 'PC_NO_GPS' | 'BROWSER_GPS' | 'NATIVE_ANDROID' | string;
+  checkoutLocationSource?: 'PC_NO_GPS' | 'BROWSER_GPS' | 'NATIVE_ANDROID' | string | null;
 
   // State Machine & Idempotency tracking
   currentState?: AttendanceState;
