@@ -65,6 +65,8 @@ import {
   getFormattedTimeStr,
   performCheckIn,
   performCheckOut,
+  performPcBrowserCheckIn,
+  performPcBrowserCheckOut,
   checkAndTriggerAutoCheckout,
   getCheckoutReminderStatus,
   trackSmartOfficeExit,
@@ -290,6 +292,9 @@ export const AttendanceScreen: React.FC = () => {
   const [isSubmittingProposal, setIsSubmittingProposal] = useState<boolean>(false);
   const [proposalError, setProposalError] = useState<string | null>(null);
   const [isEditingProposal, setIsEditingProposal] = useState<boolean>(false);
+
+  // Restrict no-GPS attendance to non-touch desktop browsers; native Android and mobile browsers retain GPS rules.
+  const isPcBrowser = !Capacitor.isNativePlatform() && typeof navigator !== 'undefined' && /Windows|Mac|Linux|CrOS/i.test(navigator.platform || navigator.userAgent) && (navigator.maxTouchPoints || 0) === 0;
 
   const employeeId = employeeData?.employeeCode || employeeData?.id || 'EMP-UNKNOWN';
   const employeeName = employeeData?.name || 'Employee';
@@ -557,6 +562,16 @@ export const AttendanceScreen: React.FC = () => {
 
   // Office Check-In Handler
   const handleManualCheckIn = async () => {
+    if (isPcBrowser) {
+      if (todayRecord) { setActionFeedback('Attendance session already logged for today.'); return; }
+      try {
+        const record = performPcBrowserCheckIn(employeeId, employeeName);
+        updateAttendanceOptimistically(record);
+        refreshRecords();
+        setActionFeedback('PC attendance check-in recorded. Location unavailable on this device.');
+      } catch (err: any) { setActionFeedback(err.message || 'PC check-in failed.'); }
+      return;
+    }
     if (todayRecord) {
       setActionFeedback('Attendance session already logged for today.');
       return;
@@ -623,6 +638,16 @@ export const AttendanceScreen: React.FC = () => {
   // Check-Out Handler
   const handleManualCheckOut = () => executeSensitiveAction('ATTENDANCE_CHECKOUT', () => {
     if (!todayRecord) return;
+    if (isPcBrowser) {
+      try {
+        const updated = performPcBrowserCheckOut(todayRecord);
+        updateAttendanceOptimistically(updated);
+        refreshRecords();
+        dismissUnresolvedNotificationForDate(employeeId, todayRecord.date, updated.id).catch(() => {});
+        setActionFeedback('PC attendance check-out recorded at ' + updated.checkOutTime + '. Location unavailable on this device.');
+      } catch (err: any) { setActionFeedback(err.message || 'PC check-out failed.'); }
+      return;
+    }
 
     const isWfh = todayRecord.attendanceType === 'WFH';
 
@@ -1002,7 +1027,7 @@ export const AttendanceScreen: React.FC = () => {
     };
   }, [allRecords, employeeId, companyMonthAttendance, companyMonthLoaded]);
 
-  if (!Capacitor.isNativePlatform() && (isPermissionDenied || isGpsOff || (locationStatus === 'error' && isLocationUnavailable))) {
+  if (!isPcBrowser && !Capacitor.isNativePlatform() && (isPermissionDenied || isGpsOff || (locationStatus === 'error' && isLocationUnavailable))) {
     return <LocationGate />;
   }
 
@@ -1249,9 +1274,9 @@ export const AttendanceScreen: React.FC = () => {
                 <div className="space-y-3">
                   <Button 
                     onClick={handleManualCheckIn}
-                    disabled={locationStatus !== 'success' || distance === null || distance > 25}
+                    disabled={!isPcBrowser && (locationStatus !== 'success' || distance === null || distance > 25)}
                     className={`w-full py-4 font-black text-sm rounded-2xl transition-all border cursor-pointer ${
-                      locationStatus === 'success' && distance !== null && distance <= 25
+                      (isPcBrowser || (locationStatus === 'success' && distance !== null && distance <= 25))
                         ? 'bg-[var(--button-primary)] text-white border-[var(--border)] active:scale-[0.98] shadow-xl'
                         : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)] border-[var(--border)] opacity-60 cursor-not-allowed shadow-none'
                     }`}
@@ -1259,7 +1284,7 @@ export const AttendanceScreen: React.FC = () => {
                     <UserCheck className="w-5 h-5 mr-2" /> 
                     CHECK IN
                   </Button>
-                  {(locationStatus !== 'success' || distance === null || distance > 25) && (
+                  {!isPcBrowser && (locationStatus !== 'success' || distance === null || distance > 25) && (
                     <div className="flex items-center justify-center gap-2 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
                       <MapPin className="w-3 h-3" /> 25m Geofence Enforcement
                     </div>
@@ -1271,16 +1296,16 @@ export const AttendanceScreen: React.FC = () => {
                     <>
                       <Button 
                         onClick={handleManualCheckOut} 
-                        disabled={!isInsideGeofence || isVerifying}
+                        disabled={(!isPcBrowser && !isInsideGeofence) || isVerifying}
                         className={`w-full py-4 font-black text-sm rounded-2xl transition-all shadow-xl cursor-pointer ${
-                          isInsideGeofence && !isVerifying
+                          (isPcBrowser || isInsideGeofence) && !isVerifying
                             ? 'bg-[var(--danger)] hover:bg-[var(--danger)]/80 text-white border border-[var(--border)] active:scale-[0.98]' 
                             : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)] border border-[var(--border)] cursor-not-allowed opacity-60'
                         }`}
                       >
                         <LogOut className="w-5 h-5 mr-2" /> {isVerifying ? 'VERIFYING...' : 'CHECK OUT'}
                       </Button>
-                      {!isInsideGeofence && (
+                      {!isPcBrowser && !isInsideGeofence && (
                         <div className="flex items-center justify-center gap-2 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
                           <AlertTriangle className="w-3 h-3 text-[var(--danger)]" /> Office Exit Detected
                         </div>
