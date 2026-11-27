@@ -86,7 +86,12 @@ const getRegistrationStorage = (key: string): string | null => {
   const storageKey = registrationStorageKey(key);
   try {
     const stored = localStorage.getItem(storageKey);
-    if (stored) return stored;
+    if (stored) {
+      if (isEmployeePortalPath() && key === 'registrationId') {
+        setPortalRegistrationCookie(stored);
+      }
+      return stored;
+    }
   } catch {}
   return isEmployeePortalPath() && key === 'registrationId'
     ? getPortalRegistrationCookie()
