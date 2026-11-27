@@ -132,11 +132,12 @@ export const AttendanceScreen: React.FC = () => {
 
   // Trigger Active Attendance Mode on Mount for high-frequency location updates
   useEffect(() => {
+    if (isPcBrowser) return;
     setActiveAttendanceMode(true);
     return () => {
       setActiveAttendanceMode(false);
     };
-  }, [setActiveAttendanceMode]);
+  }, [setActiveAttendanceMode, isPcBrowser]);
 
   // Native Location Readiness State & Actions
   const [nativeReadiness, setNativeReadiness] = useState<NativeLocationReadiness | null>(null);
@@ -547,7 +548,7 @@ export const AttendanceScreen: React.FC = () => {
   };
 
   useEffect(() => {
-    if (liveLocation && distance !== null && locationState !== 'LOCATING') {
+    if (!isPcBrowser && liveLocation && distance !== null && locationState !== 'LOCATING') {
       const todayStr = getFormattedDateStr();
       const activeRecord = getTodayAttendanceRecord(employeeId, todayStr);
       if (activeRecord && (activeRecord.attendanceType === 'OFFICE' || !activeRecord.attendanceType)) {
@@ -558,7 +559,7 @@ export const AttendanceScreen: React.FC = () => {
       }
       handleImmediateAutoCheckIn(isInsideGeofence || distance <= OFFICE_LOCATION.radius, liveLocation);
     }
-  }, [liveLocation, distance, isInsideGeofence, employeeId, locationState]);
+  }, [liveLocation, distance, isInsideGeofence, employeeId, locationState, isPcBrowser]);
 
   // Office Check-In Handler
   const handleManualCheckIn = async () => {
