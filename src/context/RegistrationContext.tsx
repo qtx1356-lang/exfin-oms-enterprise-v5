@@ -4,6 +4,8 @@ import { doc, getDoc, onSnapshot, runTransaction, setDoc, collection, query, whe
 import { signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth } from '../services/firebase/config';
 import { Device } from '@capacitor/device';
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 import { logStartupTag } from '../services/startup/startupPerformanceLogger';
 import {
   registerEmployeeDeviceToken,
@@ -175,6 +177,57 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     employeeData?.status,
     localRegId,
   ]);
+
+  // Native Android app heartbeat: report installation presence while the app is running.
+  // Android does not send an uninstall callback, so the admin UI interprets stale heartbeats
+  // as inactivity / possible uninstall rather than claiming a definite uninstall.
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return;
+    if (!localRegId || !(status === 'Approved' || employeeData?.status === 'Approved')) return;
+
+    const activeDb = db.concrete || db;
+    if (!activeDb) return;
+
+    let disposed = false;
+    let appStateListener: { remove: () => Promise<void> } | null = null;
+
+    const sendHeartbeat = async () => {
+      if (disposed) return;
+      try {
+        await updateDoc(doc(activeDb, 'registrations', localRegId), {
+          appInstallStatus: 'INSTALLED',
+          appPlatform: 'android',
+          appPackageName: 'com.exfin.oms',
+          lastAppHeartbeatAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        // A missed heartbeat is not evidence of uninstall; the device may be offline.
+        console.warn('[AppPresence] Could not send native app heartbeat:', error);
+      }
+    };
+
+    void sendHeartbeat();
+    const intervalId = window.setInterval(() => {
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        void sendHeartbeat();
+      }
+    }, 5 * 60 * 1000);
+
+    void App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) void sendHeartbeat();
+    }).then((listener) => {
+      if (disposed) void listener.remove();
+      else appStateListener = listener;
+    }).catch((error) => {
+      console.warn('[AppPresence] Could not subscribe to app foreground events:', error);
+    });
+
+    return () => {
+      disposed = true;
+      window.clearInterval(intervalId);
+      if (appStateListener) void appStateListener.remove();
+    };
+  }, [localRegId, status, employeeData?.status]);
 
   // Keep Native Geofence Employee Identity synchronized whenever employeeData is present and approved
   useEffect(() => {
