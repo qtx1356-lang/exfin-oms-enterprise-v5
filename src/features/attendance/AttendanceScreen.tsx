@@ -130,6 +130,9 @@ export const AttendanceScreen: React.FC = () => {
     isLocationUnavailable,
   } = useLocationContext();
 
+  // Restrict no-GPS attendance to non-touch desktop browsers; native Android and mobile browsers retain GPS rules.
+  const isPcBrowser = !Capacitor.isNativePlatform() && typeof navigator !== 'undefined' && /Windows|Mac|Linux|CrOS/i.test(navigator.platform || navigator.userAgent) && (navigator.maxTouchPoints || 0) === 0;
+
   // Trigger Active Attendance Mode on Mount for high-frequency location updates
   useEffect(() => {
     if (isPcBrowser) return;
@@ -294,8 +297,6 @@ export const AttendanceScreen: React.FC = () => {
   const [proposalError, setProposalError] = useState<string | null>(null);
   const [isEditingProposal, setIsEditingProposal] = useState<boolean>(false);
 
-  // Restrict no-GPS attendance to non-touch desktop browsers; native Android and mobile browsers retain GPS rules.
-  const isPcBrowser = !Capacitor.isNativePlatform() && typeof navigator !== 'undefined' && /Windows|Mac|Linux|CrOS/i.test(navigator.platform || navigator.userAgent) && (navigator.maxTouchPoints || 0) === 0;
 
   const employeeId = employeeData?.employeeCode || employeeData?.id || 'EMP-UNKNOWN';
   const employeeName = employeeData?.name || 'Employee';
