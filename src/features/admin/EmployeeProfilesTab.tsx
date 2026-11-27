@@ -27,6 +27,28 @@ import { ProfileChangeRequest, AuditLogEntry } from '../../types/profile';
 import { reviewProfileChangeRequest } from '../../services/profile/profileService';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 
+const getNativeAppPresence = (employee: any): { label: string; detail: string; className: string } => {
+  const raw = employee?.lastAppHeartbeatAt;
+  if (!raw) {
+    return { label: 'No app signal yet', detail: 'No native app heartbeat recorded', className: 'text-slate-300 bg-slate-500/15 border-slate-400/20' };
+  }
+
+  const lastSeen = new Date(raw).getTime();
+  if (!Number.isFinite(lastSeen)) {
+    return { label: 'Unknown', detail: 'Last app signal is invalid', className: 'text-slate-300 bg-slate-500/15 border-slate-400/20' };
+  }
+
+  const ageMs = Math.max(0, Date.now() - lastSeen);
+  const detail = 'Last signal: ' + new Date(lastSeen).toLocaleString();
+  if (ageMs <= 15 * 60 * 1000) {
+    return { label: 'Installed · Active', detail, className: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/25' };
+  }
+  if (ageMs <= 7 * 24 * 60 * 60 * 1000) {
+    return { label: 'Inactive / Not recently active', detail, className: 'text-amber-300 bg-amber-500/10 border-amber-500/25' };
+  }
+  return { label: 'Possibly uninstalled · No signal 7+ days', detail, className: 'text-rose-300 bg-rose-500/10 border-rose-500/25' };
+};
+
 export const EmployeeProfilesTab: React.FC = () => {
   const { user, role = 'ADMIN', loginId } = useAdminAuth();
 
@@ -240,6 +262,17 @@ export const EmployeeProfilesTab: React.FC = () => {
                   <h3 className="font-extrabold text-sm text-white truncate">{emp.name}</h3>
                   <p className="text-[11px] font-bold text-purple-300">{emp.employeeCode}</p>
                   <p className="text-[10px] text-purple-300/60 truncate">{emp.office || 'Raniganj Office'}</p>
+                  {(() => {
+                    const presence = getNativeAppPresence(emp);
+                    return (
+                      <div className="mt-1 space-y-0.5">
+                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-bold ${presence.className}`}>
+                          App: {presence.label}
+                        </span>
+                        <p className="text-[9px] text-purple-300/55">{presence.detail}</p>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
