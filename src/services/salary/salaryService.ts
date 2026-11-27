@@ -75,7 +75,8 @@ export interface PresentDaysResult {
 }
 
 /**
- * Checks if a check-in time string (e.g. "10:31 AM") is late (10:31 AM or later)
+ * Checks if a check-in time is late.
+ * 11:00 AM is on time; only check-ins after 11:00 AM are late.
  */
 export function isSalaryLateCheckIn(checkInTimeStr: string): boolean {
   if (!checkInTimeStr) return false;
@@ -92,8 +93,8 @@ export function isSalaryLateCheckIn(checkInTimeStr: string): boolean {
       hours = 0;
     }
     const totalMinutes = hours * 60 + minutes;
-    const threshold = 10 * 60 + 30; // 10:30 AM is 630 minutes
-    return totalMinutes > threshold; // 10:31 AM or later is > 630 mins
+    const threshold = 11 * 60; // 11:00 AM is 660 minutes
+    return totalMinutes > threshold; // 11:01 AM or later is late
   } catch (err) {
     return false;
   }
