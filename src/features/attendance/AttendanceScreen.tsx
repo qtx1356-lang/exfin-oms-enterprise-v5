@@ -131,7 +131,7 @@ export const AttendanceScreen: React.FC = () => {
   } = useLocationContext();
 
   // Restrict no-GPS attendance to non-touch desktop browsers; native Android and mobile browsers retain GPS rules.
-  const isPcBrowser = !Capacitor.isNativePlatform() && typeof navigator !== 'undefined' && /Windows|Mac|Linux|CrOS/i.test(navigator.platform || navigator.userAgent) && (navigator.maxTouchPoints || 0) === 0;
+  const isPcBrowser = !Capacitor.isNativePlatform() && typeof navigator !== 'undefined' && /Win|Mac|Linux|CrOS/i.test(navigator.platform || navigator.userAgent) && (navigator.maxTouchPoints || 0) === 0;
 
   // Trigger Active Attendance Mode on Mount for high-frequency location updates
   useEffect(() => {
