@@ -875,7 +875,9 @@ SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
   // Stage B — Inside/Near Office (dist <= 25m): Fast 3s active monitoring & immediate evaluation
   // Stage C — Far from Office (> 500m): Relaxed 20s polling to conserve battery
   useEffect(() => {
-    if (!activeAttendanceMode) return;
+    // PC browser attendance is explicitly no-GPS. Do not start the fallback health
+    // monitor here: its getCurrentPosition() call can still trigger a permission prompt.
+    if (isPcBrowser || !activeAttendanceMode) return;
 
     if (adaptiveTimerRef.current) {
       clearTimeout(adaptiveTimerRef.current);
@@ -887,7 +889,7 @@ SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
     trackResourceCreated('SYNC_TIMER', timerId, 'location_health_monitor');
 
     const checkLocationHealth = async () => {
-      if (!isRunning) return;
+      if (!isRunning || isPcBrowser) return;
 
       const now = Date.now();
       const lastFixTime = locationTimestampRef.current || 0;
