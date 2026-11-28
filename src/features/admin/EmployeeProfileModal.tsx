@@ -513,7 +513,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                                 return '—';
                               })()}
                             </td>
-                            <td className="p-3 text-purple-300/70">{att.source || 'Automatic'}</td>
+                            <td className="p-3 text-purple-300/70">{att.attendanceSource === 'PC_NO_GPS' ? 'PC attendance – location unavailable' : (att.source || 'Automatic')}</td>
                           </tr>
                         ))
                       ) : (
@@ -543,6 +543,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                       <th className="p-3">Check-out</th>
                       <th className="p-3">Type</th>
                       <th className="p-3">Duration</th>
+                      <th className="p-3">Source</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-purple-500/10">
@@ -565,11 +566,12 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                               return '—';
                             })()}
                           </td>
+                          <td className="p-3 text-purple-300/70">{att.attendanceSource === 'PC_NO_GPS' ? 'PC attendance – location unavailable' : (att.source || 'GPS / app')}</td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-purple-300/60 italic">No attendance history available.</td>
+                        <td colSpan={7} className="p-8 text-center text-purple-300/60 italic">No attendance history available.</td>
                       </tr>
                     )}
                   </tbody>

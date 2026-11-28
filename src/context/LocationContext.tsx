@@ -72,6 +72,8 @@ const getInitialCachedDistance = (): number | null => {
 const getTime = () => new Date().toISOString().substring(11, 23);
 
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Desktop employee portals must not request browser geolocation; PC attendance is explicitly no-GPS.
+  const isPcBrowser = !Capacitor.isNativePlatform() && typeof navigator !== 'undefined' && /Win|Mac|Linux|CrOS/i.test(navigator.platform || navigator.userAgent) && (navigator.maxTouchPoints || 0) === 0;
   React.useEffect(() => {
     console.log(`[FLICKER-TRACE] LocationProvider MOUNT ${getTime()}`);
     return () => console.log(`[FLICKER-TRACE] LocationProvider UNMOUNT ${getTime()}`);
@@ -448,6 +450,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [backgroundPermissionGranted, setBackgroundPermissionGranted] = useState<boolean>(false);
 
   useEffect(() => {
+    if (isPcBrowser) return;
     checkBackgroundPermissionStatus().then((res) => {
       setBackgroundPermissionGranted(res.isBackgroundGranted);
     });
@@ -457,7 +460,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => {
       cleanupBg();
     };
-  }, []);
+  }, [isPcBrowser]);
 
   const handleRequestBgPermission = React.useCallback(async (): Promise<boolean> => {
     const granted = await requestBackgroundLocationPermission();
@@ -754,6 +757,12 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const startTracking = async () => {
+    if (isPcBrowser) {
+      // Deliberately do not call watchPosition on desktop: it triggers the browser GPS permission prompt.
+      setLocationStatus('success');
+      clearErrors();
+      return;
+    }
     logStartupTag('LOCATION_INIT_START', 'Starting Geolocation tracking & adaptive polling');
     if (distance === null && (typeof navigator === 'undefined' || navigator.onLine)) {
       setLocationStatus('loading');
@@ -844,7 +853,7 @@ SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
 
   // Auto-start single authoritative location stream on Provider mount
   useEffect(() => {
-    startTracking();
+    if (!isPcBrowser) startTracking();
 
     return () => {
       if (watchIdRef.current !== null) {
@@ -859,14 +868,16 @@ SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
         watchIdRef.current = null;
       }
     };
-  }, []);
+  }, [isPcBrowser]);
 
   // Two-Stage Location Strategy: Fallback Location Health Monitoring Engine
   // Stage A — Approaching Office (dist <= 500m): Query fresh GPS fixes every 3s if watchPosition pauses
   // Stage B — Inside/Near Office (dist <= 25m): Fast 3s active monitoring & immediate evaluation
   // Stage C — Far from Office (> 500m): Relaxed 20s polling to conserve battery
   useEffect(() => {
-    if (!activeAttendanceMode) return;
+    // PC browser attendance is explicitly no-GPS. Do not start the fallback health
+    // monitor here: its getCurrentPosition() call can still trigger a permission prompt.
+    if (isPcBrowser || !activeAttendanceMode) return;
 
     if (adaptiveTimerRef.current) {
       clearTimeout(adaptiveTimerRef.current);
@@ -878,7 +889,7 @@ SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
     trackResourceCreated('SYNC_TIMER', timerId, 'location_health_monitor');
 
     const checkLocationHealth = async () => {
-      if (!isRunning) return;
+      if (!isRunning || isPcBrowser) return;
 
       const now = Date.now();
       const lastFixTime = locationTimestampRef.current || 0;
@@ -992,6 +1003,7 @@ SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
   }, [locationStatus, stableInsideOffice, locationTimestamp, isVerifyingLocation]);
 
   const forceRefreshLocation = React.useCallback(async () => {
+    if (isPcBrowser) return;
     setLocationStatus('loading');
     setIsFreshFixReceived(false);
     try {
@@ -1007,7 +1019,7 @@ SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
     } catch (err: any) {
       handleError(err);
     }
-  }, []);
+  }, [isPcBrowser]);
 
   const contextValue = React.useMemo(
     () => ({
