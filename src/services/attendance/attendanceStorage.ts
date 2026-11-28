@@ -212,19 +212,35 @@ export const getAllStoredAttendanceRecords = (): AttendanceRecord[] => {
             if (!existing) {
               recordMap.set(canonicalKey, rec);
             } else {
-              // Merge cleanly, preserving check-ins and check-outs
-              const hasRecCheckIn = hasActualCheckIn(rec);
-              const hasExistingCheckIn = hasActualCheckIn(existing);
+              // Prefer an Admin-authoritative correction over stale copies held in
+              // another legacy/local-storage namespace. Otherwise use server version
+              // and updatedAt, keeping the first (employee) namespace on exact ties.
+              const existingAuthoritative =
+                isServerAttendanceAuthoritative(existing) ||
+                existing.isAdminRectified === true ||
+                existing.manualRectified === true;
+              const incomingAuthoritative =
+                isServerAttendanceAuthoritative(rec) ||
+                rec.isAdminRectified === true ||
+                rec.manualRectified === true;
 
-              if (hasRecCheckIn && !hasExistingCheckIn) {
-                recordMap.set(canonicalKey, { ...existing, ...rec });
-              } else if (rec.checkInVerificationStatus === 'VERIFIED' && existing.checkInVerificationStatus !== 'VERIFIED' && !existing.isAdminRectified && !existing.manualRectified) {
-                recordMap.set(canonicalKey, { ...existing, ...rec });
-              } else if (rec.checkOutTime && !existing.checkOutTime) {
-                recordMap.set(canonicalKey, { ...existing, ...rec });
-              } else {
-                recordMap.set(canonicalKey, { ...existing, ...rec });
-              }
+              const existingUpdatedAt = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+              const incomingUpdatedAt = rec.updatedAt ? new Date(rec.updatedAt).getTime() : 0;
+              const existingVersion = Number(existing.version || 0);
+              const incomingVersion = Number(rec.version || 0);
+
+              const incomingWins =
+                (incomingAuthoritative && !existingAuthoritative) ||
+                (incomingAuthoritative === existingAuthoritative &&
+                  (incomingVersion > existingVersion ||
+                    (incomingVersion === existingVersion && incomingUpdatedAt > existingUpdatedAt)));
+
+              const preferred = incomingWins ? rec : existing;
+              const secondary = incomingWins ? existing : rec;
+
+              // Keep supplementary evidence from the older copy, but never let its
+              // stale checkout/status fields overwrite the preferred correction.
+              recordMap.set(canonicalKey, { ...secondary, ...preferred });
             }
           });
         }
