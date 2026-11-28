@@ -73,7 +73,7 @@ const getTime = () => new Date().toISOString().substring(11, 23);
 
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Desktop employee portals must not request browser geolocation; PC attendance is explicitly no-GPS.
-  const isPcBrowser = !Capacitor.isNativePlatform() && typeof navigator !== 'undefined' && /Windows|Mac|Linux|CrOS/i.test(navigator.platform || navigator.userAgent) && (navigator.maxTouchPoints || 0) === 0;
+  const isPcBrowser = !Capacitor.isNativePlatform() && typeof navigator !== 'undefined' && /Win|Mac|Linux|CrOS/i.test(navigator.platform || navigator.userAgent) && (navigator.maxTouchPoints || 0) === 0;
   React.useEffect(() => {
     console.log(`[FLICKER-TRACE] LocationProvider MOUNT ${getTime()}`);
     return () => console.log(`[FLICKER-TRACE] LocationProvider UNMOUNT ${getTime()}`);
